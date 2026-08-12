@@ -1,6 +1,6 @@
 # Modern Fintech Payment Platform Landscape
 
-This document presents the **modern state-of-the-art landscape** for building high-scale, fault-tolerant Fintech Payment Processing Platforms. It outlines industry architectural shifts, technical requirements, and core engineering patterns, establishing the real-world context behind **mPayFlow**.
+This document presents the **modern state-of-the-art landscape** for building high-scale, fault-tolerant Fintech Payment Processing Platforms. It outlines industry architectural shifts, technical requirements, and core engineering patterns, establishing the real-world context behind **qPayFlow**.
 
 ---
 
@@ -102,9 +102,9 @@ In modern financial systems, platforms operate under the expectation of **instan
 
 ---
 
-## 4. How mPayFlow Reflects Modern Payment Engine Standards
+## 4. How qPayFlow Reflects Modern Payment Engine Standards
 
-**mPayFlow** is designed directly against these modern industry requirements using **Golang**, **Kafka**, **Redis**, and **PostgreSQL**:
+**qPayFlow** is designed directly against these modern industry requirements using **Golang**, **Kafka**, **Redis**, and **PostgreSQL**:
 
 ```text
                ┌───────────────────────┐
@@ -136,7 +136,7 @@ In modern financial systems, platforms operate under the expectation of **instan
 └─────────────────┘ └─────────────┘ └──────────────────┘
 ```
 
-Through this design, **mPayFlow** serves as a production-grade playground for benchmarking, failure recovery experiments, and mastering modern Fintech distributed systems.
+Through this design, **qPayFlow** serves as a production-grade playground for benchmarking, failure recovery experiments, and mastering modern Fintech distributed systems.
 
 ---
 

@@ -1,6 +1,6 @@
-# mPayFlow - Distributed Payment Processing Platform
+# qPayFlow - Distributed Payment Processing Platform
 
-**mPayFlow** is a hands-on project focused on **learning and applying core Distributed System concepts in Go**. The project is not designed as a typical CRUD app, but as a **Payment Processing Platform** capable of horizontal scaling, fault tolerance, idempotency, consistency, ordering, and eventual consistency.
+**qPayFlow** is a hands-on project focused on **learning and applying core Distributed System concepts in Go**. The project is not designed as a typical CRUD app, but as a **Payment Processing Platform** capable of horizontal scaling, fault tolerance, idempotency, consistency, ordering, and eventual consistency.
 
 Primary tech stack: **Golang + Kafka + Redis + PostgreSQL**.
 
