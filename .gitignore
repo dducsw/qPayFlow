@@ -1,0 +1,65 @@
+# Operating System
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+
+# Build & Dependency Outputs (Java / Go / Node)
+target/
+build/
+.gradle/
+out/
+bin/
+vendor/
+*.class
+*.jar
+*.war
+*.ear
+*.exe
+*.exe.*
+*.dll
+*.so
+*.dylib
+
+# Logs & Temporary Files
+logs/
+*.log
+*.tmp
+*.bak
+
+# Environment & Sensitive Files
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.p12
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+
+# AI Agent & Local Index Caches
+.agents/scratch/
+.agents/logs/
+.codegraph/
+.agents
