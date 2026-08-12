@@ -1,0 +1,39 @@
+# Multi-stage Dockerfile for Go Microservices in qPayFlow
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+
+# Install essential build dependencies
+RUN apk add --no-cache git ca-certificates tzdata
+
+# Cache Go modules
+COPY go.mod go.sum* ./
+RUN go mod download 2>/dev/null || true
+
+# Copy source code
+COPY . .
+
+# Service name passed via build args (e.g. api-gateway, payment-service)
+ARG SERVICE_NAME
+RUN if [ -z "$SERVICE_NAME" ]; then echo "SERVICE_NAME argument is required" && exit 1; fi
+
+# Build lightweight static binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s" \
+    -o /app/bin/service \
+    ./cmd/${SERVICE_NAME}
+
+# Minimal runtime image
+FROM alpine:3.19 AS runner
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /app
+
+# Run as non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
+COPY --from=builder /app/bin/service /app/service
+
+CMD ["/app/service"]
