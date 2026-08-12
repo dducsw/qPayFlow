@@ -1,4 +1,15 @@
-# qPayFlow - Distributed Payment Processing Platform
+<div align="center">
+
+# qPayFlow
+### Distributed Payment Processing Platform
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://golang.org/)
+[![Kafka](https://img.shields.io/badge/Kafka-4.x-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7.x-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+
+</div>
 
 **qPayFlow** is a hands-on project focused on **learning and applying core Distributed System concepts in Go**. The project is not designed as a typical CRUD app, but as a **Payment Processing Platform** capable of horizontal scaling, fault tolerance, idempotency, consistency, ordering, and eventual consistency.
 
@@ -114,4 +125,10 @@ The project will be benchmarked and validated through real-world tests:
 * **Phase 10 — Chaos Engineering (3-5 days):** Test crash scenarios, network partitions. Document recovery.
 * **Phase 11 — Kubernetes (3-5 days):** Containerize and deploy to k8s, experiment with auto-scaling.
 * **Phase 12 — Site Reliability Engineering (SRE) (3-5 days):** Define SLIs/SLOs/Error Budgets, set up Prometheus Alertmanager, and track burn rates during chaos tests.
+
+---
+
+## License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
