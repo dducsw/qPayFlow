@@ -28,6 +28,12 @@ The highlight of the project is not just basic "Microservices + Kafka + Redis + 
 
 ![Payment System Architecture](docs/images/design-payment-system.svg)
 
+### User Web Interface
+
+<div align="center">
+  <img src="docs/images/ui.png" alt="qPayFlow User Web Interface" width="60%" />
+</div>
+
 ### 1. Overall Problem
 The system processes a basic yet distributed payment flow:
 `Receive Payment (REST) -> Validate (Idempotency) -> Inter-Service (gRPC) -> Fraud Pre-Check -> Hold/Reserve Balance -> Process Payment (Kafka Saga) -> Capture/Settlement -> Notification`
