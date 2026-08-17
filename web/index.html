@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#F5F7FA] text-slate-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>qPayFlow | Distributed Payment Engine</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Font: Inter (PayPal Sans equivalent - 100% Unified Typography) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Inter"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                    },
+                    colors: {
+                        qpay: {
+                            blue: '#00457C',       // PayPal / Enterprise Deep Blue
+                            action: '#0079C1',     // PayPal Active Blue
+                            light: '#F0F5FA',
+                            accent: '#002C6C',
+                            border: '#D1E0EE'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 100% Unified PayPal Typography across all elements */
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            font-feature-settings: 'tnum' 1, 'cv02' 1, 'cv03' 1, 'cv04' 1;
+            border-radius: 0px !important;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F5F7FA;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00457C;
+        }
+        .tech-border {
+            position: relative;
+        }
+        .tech-border::after {
+            content: '';
+            position: absolute;
+            top: -1px;
+            right: -1px;
+            width: 8px;
+            height: 8px;
+            background-color: #00457C;
+        }
+    </style>
+</head>
+<body class="min-h-full font-sans antialiased bg-[#F5F7FA] text-slate-900 flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="border-b border-slate-200 bg-white sticky top-0 z-40 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <!-- Brand: PayPal-Style Monogram & Dual-Tone Wordmark -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center gap-2 cursor-pointer">
+                    <!-- Overlapping Sharp Dual-Tone "qP" Monogram (Dual Blue) -->
+                    <svg class="w-8 h-8" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Letter 'q': Navy Blue -->
+                        <path d="M3 6H13V26H9V16H3V6Z" fill="#003087"/>
+                        <!-- Letter 'P': PayPal Cyan / Action Blue -->
+                        <path d="M11 2H25V13H17V24H11V2Z" fill="#0079C1" fill-opacity="0.95"/>
+                        <!-- Overlap intersection blending -->
+                        <path d="M11 6H13V13H11V6Z" fill="#001C4E"/>
+                        <path d="M11 13H13V16H11V13Z" fill="#00246B"/>
+                    </svg>
+
+                    <!-- Upright Wordmark: qPay (Blue) + Flow (Green) -->
+                    <div class="flex items-baseline font-extrabold text-xl tracking-tight">
+                        <span class="text-[#003087]">qPay</span><span class="text-emerald-600">Flow</span>
+                    </div>
+                </div>
+
+                <div class="h-4 w-px bg-slate-300 hidden sm:block"></div>
+                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">
+                    ENGINE V1.0
+                </span>
+            </div>
+
+            <!-- Right Controls: Notification + User -->
+            <div class="flex items-center space-x-4 text-xs">
+                <!-- Notification Bell Button -->
+                <div class="relative">
+                    <button id="notification-btn" onclick="toggleNotificationDrawer()" 
+                        class="p-2 bg-white hover:bg-slate-100 text-slate-700 hover:text-qpay-blue border border-slate-200 transition-colors relative">
+                        <i data-lucide="bell" class="w-4 h-4"></i>
+                        <span id="notif-badge" class="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center">
+                            3
+                        </span>
+                    </button>
+
+                    <!-- Notifications Dropdown Panel with VIEW MORE -->
+                    <div id="notification-panel" class="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-slate-300 shadow-2xl z-50 hidden">
+                        <div class="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                            <span class="font-bold text-xs text-slate-900 uppercase tracking-tight">NOTIFICATIONS</span>
+                            <button onclick="clearNotifications()" class="text-[10px] text-qpay-action hover:underline font-bold">MARK ALL READ</button>
+                        </div>
+
+                        <!-- Notification Items List -->
+                        <div id="notification-list" class="max-h-80 overflow-y-auto divide-y divide-slate-100 text-xs">
+                            <!-- Injected by JS -->
+                        </div>
+
+                        <!-- Notification Footer with View More Button -->
+                        <div class="p-2.5 bg-slate-50 border-t border-slate-100 text-center">
+                            <button id="notif-more-btn" onclick="toggleMoreNotifications()" class="w-full py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[11px] uppercase transition-colors">
+                                VIEW MORE NOTIFICATIONS
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="h-6 w-px bg-slate-200"></div>
+
+                <!-- User Profile Block with 16-Digit Standard Account -->
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-qpay-light border border-qpay-border flex items-center justify-center font-bold text-xs text-qpay-blue">
+                        U
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="font-bold text-slate-900 text-xs tracking-tight">USER</span>
+                        <span class="text-[10px] text-slate-500 flex items-center gap-1 cursor-pointer hover:text-qpay-blue font-medium" onclick="copyText('8888-9901-0000-0001', 'Account number copied!')">
+                            8888-9901-0000-0001 <i data-lucide="copy" class="w-3 h-3 text-qpay-blue"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container (Centered Layout) -->
+    <main class="flex-1 max-w-2xl mx-auto px-4 sm:px-6 py-8 w-full space-y-6">
+
+        <!-- Balance Metric Card -->
+        <div class="bg-white border border-slate-200 p-6 relative shadow-sm tech-border">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500 uppercase font-semibold tracking-wider">AVAILABLE BALANCE</span>
+                    <button id="toggle-balance-btn" onclick="toggleBalanceVisibility()" class="text-slate-400 hover:text-qpay-blue p-1 transition-colors">
+                        <i data-lucide="eye" id="eye-icon" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <span class="text-[10px] bg-blue-50 text-qpay-blue border border-qpay-border px-2.5 py-0.5 font-bold tracking-tight">
+                    USD (840 ISO)
+                </span>
+            </div>
+
+            <div class="flex items-baseline space-x-2 mb-6">
+                <span class="text-3xl font-bold text-qpay-blue">$</span>
+                <span id="balance-display" class="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-950">
+                    12,450.00
+                </span>
+                <span class="text-sm font-semibold text-slate-500">USD</span>
+            </div>
+
+            <!-- Balance Details Grid -->
+            <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100 text-xs">
+                <div>
+                    <span class="text-slate-400 block text-[11px] font-medium">ESCROW / ON HOLD</span>
+                    <span class="text-slate-800 font-semibold">$0.00 USD</span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block text-[11px] font-medium">DAILY LIMIT</span>
+                    <span class="text-slate-800 font-semibold">$50,000.00 USD</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transfer Form Panel -->
+        <div class="bg-white border border-slate-200 p-6 space-y-6 shadow-sm">
+            <div class="border-b border-slate-100 pb-3">
+                <h2 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <span class="w-1.5 h-3 bg-qpay-blue inline-block"></span>
+                    Transfer Funds (qPay Network)
+                </h2>
+            </div>
+
+            <form id="transfer-form" onsubmit="handleTransferSubmit(event)" class="space-y-4">
+                <!-- Recipient Account (16-Digit Standard) -->
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label for="recipient-input" class="text-xs text-slate-500 font-semibold">
+                            RECIPIENT ACCOUNT (16-DIGIT)
+                        </label>
+                        <span class="text-[10px] text-slate-400 font-medium">PAN / ISO 7812</span>
+                    </div>
+                    <div class="relative">
+                        <input type="text" id="recipient-input" required maxlength="19"
+                            placeholder="8888-9902-0000-0012" 
+                            oninput="formatAndLookupAccount(this)"
+                            class="w-full bg-slate-50 border border-slate-300 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-qpay-blue transition-colors tracking-wider">
+                        <div id="recipient-lookup-status" class="absolute right-3 top-3 text-xs"></div>
+                    </div>
+                    <!-- Resolved Recipient Name Banner -->
+                    <div id="resolved-recipient-card" class="mt-2 bg-blue-50 border border-blue-200 p-2.5 flex items-center justify-between text-xs hidden">
+                        <span class="text-slate-600 font-medium">BENEFICIARY:</span>
+                        <span id="resolved-recipient-name" class="font-bold text-qpay-blue">MERCHANT_02</span>
+                    </div>
+                </div>
+
+                <!-- Amount (USD) -->
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label for="amount-input" class="text-xs text-slate-500 font-semibold">TRANSFER AMOUNT (USD)</label>
+                        <span id="amount-in-words" class="text-[11px] text-qpay-action font-semibold"></span>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute left-4 top-3 text-lg font-bold text-slate-400">$</span>
+                        <input type="number" id="amount-input" required min="1" step="0.01" placeholder="0.00" 
+                            oninput="handleAmountInput(this.value)"
+                            class="w-full bg-slate-50 border border-slate-300 pl-9 pr-4 py-3 text-lg font-bold text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-qpay-blue transition-colors">
+                    </div>
+
+                    <!-- Quick Amount Chips in USD -->
+                    <div class="grid grid-cols-4 sm:grid-cols-6 gap-1.5 mt-2">
+                        <button type="button" onclick="setQuickAmount(10)" class="py-1.5 bg-slate-100 border border-slate-200 hover:border-qpay-blue hover:text-qpay-blue text-xs font-medium text-slate-700 transition-colors">$10</button>
+                        <button type="button" onclick="setQuickAmount(50)" class="py-1.5 bg-slate-100 border border-slate-200 hover:border-qpay-blue hover:text-qpay-blue text-xs font-medium text-slate-700 transition-colors">$50</button>
+                        <button type="button" onclick="setQuickAmount(100)" class="py-1.5 bg-slate-100 border border-slate-200 hover:border-qpay-blue hover:text-qpay-blue text-xs font-medium text-slate-700 transition-colors">$100</button>
+                        <button type="button" onclick="setQuickAmount(500)" class="py-1.5 bg-slate-100 border border-slate-200 hover:border-qpay-blue hover:text-qpay-blue text-xs font-medium text-slate-700 transition-colors">$500</button>
+                        <button type="button" onclick="setQuickAmount(1000)" class="py-1.5 bg-slate-100 border border-slate-200 hover:border-qpay-blue hover:text-qpay-blue text-xs font-medium text-slate-700 transition-colors">$1,000</button>
+                        <button type="button" onclick="setAllBalance()" class="py-1.5 bg-blue-50 border border-qpay-border hover:border-qpay-blue text-xs font-bold text-qpay-blue transition-colors">ALL</button>
+                    </div>
+                </div>
+
+                <!-- Message -->
+                <div>
+                    <label for="message-input" class="block text-xs text-slate-500 font-semibold mb-1.5">PAYMENT MEMO</label>
+                    <input type="text" id="message-input" maxlength="100" placeholder="PAYMENT MEMO"
+                        class="w-full bg-slate-50 border border-slate-300 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-qpay-blue transition-colors">
+                </div>
+
+                <!-- Submit Button: Simplified to TRANSFER -->
+                <div class="pt-2">
+                    <button type="submit" id="submit-transfer-btn" 
+                        class="w-full py-4 bg-qpay-blue hover:bg-qpay-deep text-white font-bold text-sm tracking-wider uppercase flex items-center justify-center gap-2 shadow-sm transition-colors">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                        TRANSFER
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Real-time Transaction Ledger Section (Centered with Pagination & Load More) -->
+        <div class="space-y-4">
+            <div class="bg-white border border-slate-200 p-4 flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 bg-qpay-blue animate-pulse"></span>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-900">
+                        TRANSACTION HISTORY & LEDGER
+                    </h3>
+                </div>
+                <!-- Filter Chips -->
+                <div class="flex items-center gap-1 text-[10px]">
+                    <button onclick="filterFeed('all')" id="filter-all-btn" class="px-2.5 py-1 bg-qpay-blue text-white font-bold">ALL</button>
+                    <button onclick="filterFeed('in')" id="filter-in-btn" class="px-2.5 py-1 bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 font-medium">IN (+)</button>
+                    <button onclick="filterFeed('out')" id="filter-out-btn" class="px-2.5 py-1 bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 font-medium">OUT (-)</button>
+                </div>
+            </div>
+
+            <!-- Transaction List Container -->
+            <div id="tx-feed-container" class="space-y-2">
+                <!-- Dynamic Cards Rendered via JS -->
+            </div>
+
+            <!-- Pagination & View More Footer Controls -->
+            <div id="pagination-controls" class="bg-white border border-slate-200 p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-sm">
+                <div class="text-slate-500 text-[11px]" id="page-info-text">
+                    SHOWING 1-3 OF 7 TRANSACTIONS
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <!-- Load More Button -->
+                    <button id="load-more-btn" onclick="toggleViewAll()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-bold transition-colors">
+                        VIEW MORE
+                    </button>
+
+                    <!-- Page Numeric Buttons -->
+                    <div id="page-numbers-container" class="flex items-center gap-1">
+                        <!-- Injected by JS: 1, 2, 3... -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Global Sharp Toast Notification -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // State (USD)
+        let currentBalance = 12450.00;
+        let isBalanceVisible = true;
+        let activeFilter = 'all';
+        let currentPage = 1;
+        const pageSize = 3;
+        let isViewAllMode = false;
+
+        // Notification State
+        let isNotifExpanded = false;
+        let notifications = [
+            { id: 1, text: "Received $500.00 from 8888-9903-0000-0044 (GLOBAL CORP)", time: "10m ago", read: false },
+            { id: 2, text: "Transfer of $45.20 to 8888-9902-0000-0012 completed", time: "2h ago", read: false },
+            { id: 3, text: "Ledger snapshot synchronized successfully", time: "5h ago", read: false },
+            { id: 4, text: "Received $250.00 from 8888-9901-0000-0088", time: "Yesterday", read: true },
+            { id: 5, text: "Transfer of $320.00 to 8888-9902-0000-0099 executed", time: "Aug 15", read: true },
+            { id: 6, text: "Received $800.00 from 8888-9903-0000-0001", time: "Aug 14", read: true }
+        ];
+
+        // 16-Digit Account Formatted Transactions
+        let transactions = [
+            {
+                id: 'TXN-98421045',
+                type: 'IN',
+                amount: 1500.00,
+                sender: '8888-9903-0000-0044',
+                senderName: 'GLOBAL SETTLEMENT CORP',
+                recipient: '8888-9901-0000-0001',
+                desc: 'MONTHLY SERVICE SETTLEMENT',
+                timestamp: 'Today, 21:45:10',
+                status: 'SUCCESS',
+                ledgerHash: '0x8f4b...3a1c'
+            },
+            {
+                id: 'TXN-98420991',
+                type: 'OUT',
+                amount: 45.20,
+                sender: '8888-9901-0000-0001',
+                recipient: '8888-9902-0000-0012',
+                recipientName: 'COFFEE_STORE_12',
+                desc: 'INVOICE SETTLEMENT #8841',
+                timestamp: 'Today, 19:12:04',
+                status: 'SUCCESS',
+                ledgerHash: '0x2a9e...77d4'
+            },
+            {
+                id: 'TXN-98418520',
+                type: 'IN',
+                amount: 250.00,
+                sender: '8888-9901-0000-0088',
+                senderName: 'PARTNER_04',
+                recipient: '8888-9901-0000-0001',
+                desc: 'OFFICE RENT CONTRIBUTION',
+                timestamp: 'Yesterday, 14:05:33',
+                status: 'SUCCESS',
+                ledgerHash: '0x5c11...90fe'
+            },
+            {
+                id: 'TXN-98410214',
+                type: 'OUT',
+                amount: 320.00,
+                sender: '8888-9901-0000-0001',
+                recipient: '8888-9902-0000-0099',
+                recipientName: 'HARDWARE_VENDOR',
+                desc: 'SERVER HARDWARE PROCUREMENT',
+                timestamp: 'Aug 15, 2026 10:20:18',
+                status: 'SUCCESS',
+                ledgerHash: '0x99dd...bb02'
+            },
+            {
+                id: 'TXN-98409112',
+                type: 'IN',
+                amount: 800.00,
+                sender: '8888-9903-0000-0001',
+                senderName: 'APP_STORE_SETTLEMENT',
+                recipient: '8888-9901-0000-0001',
+                desc: 'IN-APP REVENUE PAYOUT',
+                timestamp: 'Aug 14, 2026 08:30:00',
+                status: 'SUCCESS',
+                ledgerHash: '0x1b7a...55e9'
+            },
+            {
+                id: 'TXN-98405001',
+                type: 'OUT',
+                amount: 120.50,
+                sender: '8888-9901-0000-0001',
+                recipient: '8888-9902-0000-0055',
+                recipientName: 'CLOUD_HOSTING_INC',
+                desc: 'INFRASTRUCTURE BILLING',
+                timestamp: 'Aug 12, 2026 16:45:12',
+                status: 'SUCCESS',
+                ledgerHash: '0x3c2f...81aa'
+            },
+            {
+                id: 'TXN-98399882',
+                type: 'IN',
+                amount: 50.00,
+                sender: '8888-9901-0000-0033',
+                senderName: 'DIRECT_SETTLEMENT_HUB',
+                recipient: '8888-9901-0000-0001',
+                desc: 'SETTLEMENT TRANSFER DEMO',
+                timestamp: 'Aug 10, 2026 11:15:20',
+                status: 'SUCCESS',
+                ledgerHash: '0x7e44...09d1'
+            }
+        ];
+
+        // Format USD Helper
+        function formatUSD(amount) {
+            return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            renderBalance();
+            renderTransactionFeed();
+            renderNotifications();
+        });
+
+        // Auto-format 16-digit account: xxxx-xxxx-xxxx-xxxx
+        function formatAndLookupAccount(input) {
+            let val = input.value.replace(/\D/g, '').substring(0, 16);
+            let formatted = '';
+            for (let i = 0; i < val.length; i++) {
+                if (i > 0 && i % 4 === 0) formatted += '-';
+                formatted += val[i];
+            }
+            input.value = formatted;
+
+            const card = document.getElementById('resolved-recipient-card');
+            const nameElem = document.getElementById('resolved-recipient-name');
+            const statusElem = document.getElementById('recipient-lookup-status');
+
+            if (val.length === 16) {
+                statusElem.innerText = 'VALID 16-DIGIT';
+                statusElem.className = 'absolute right-3 top-3 text-[10px] font-bold text-qpay-blue';
+                card.classList.remove('hidden');
+                nameElem.innerText = val.endsWith('2') ? 'MERCHANT_02 (ACC: ' + formatted + ')' : 'CLIENT_TECH_CORP (ACC: ' + formatted + ')';
+            } else {
+                statusElem.innerText = val.length > 0 ? `${val.length}/16` : '';
+                statusElem.className = 'absolute right-3 top-3 text-[10px] text-slate-400 font-medium';
+                card.classList.add('hidden');
+            }
+        }
+
+        // Toggle Notifications Panel
+        function toggleNotificationDrawer() {
+            const panel = document.getElementById('notification-panel');
+            panel.classList.toggle('hidden');
+        }
+
+        function renderNotifications() {
+            const list = document.getElementById('notification-list');
+            const badge = document.getElementById('notif-badge');
+            const moreBtn = document.getElementById('notif-more-btn');
+            const unreadCount = notifications.filter(n => !n.read).length;
+
+            if (unreadCount > 0) {
+                badge.innerText = unreadCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+
+            if (notifications.length === 0) {
+                list.innerHTML = `<div class="p-6 text-center text-slate-400 text-xs">NO NOTIFICATIONS</div>`;
+                moreBtn.classList.add('hidden');
+                return;
+            }
+
+            const displayed = isNotifExpanded ? notifications : notifications.slice(0, 3);
+            moreBtn.innerText = isNotifExpanded ? 'COLLAPSE NOTIFICATIONS' : `VIEW MORE (${notifications.length - 3} MORE)`;
+            moreBtn.classList.toggle('hidden', notifications.length <= 3);
+
+            list.innerHTML = displayed.map(n => `
+                <div class="p-3 hover:bg-slate-50 transition-colors ${n.read ? 'text-slate-400' : 'text-slate-800 font-medium bg-blue-50/40'}">
+                    <div class="flex justify-between items-start gap-2">
+                        <span class="text-xs">${n.text}</span>
+                    </div>
+                    <span class="text-[10px] text-slate-400 mt-1 block">${n.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function toggleMoreNotifications() {
+            isNotifExpanded = !isNotifExpanded;
+            renderNotifications();
+        }
+
+        function clearNotifications() {
+            notifications.forEach(n => n.read = true);
+            renderNotifications();
+        }
+
+        // Close notif panel on outside click
+        window.addEventListener('click', (e) => {
+            const btn = document.getElementById('notification-btn');
+            const panel = document.getElementById('notification-panel');
+            if (!btn.contains(e.target) && !panel.contains(e.target)) {
+                panel.classList.add('hidden');
+            }
+        });
+
+        // Toggle Balance Visibility
+        function toggleBalanceVisibility() {
+            isBalanceVisible = !isBalanceVisible;
+            renderBalance();
+            const icon = document.getElementById('eye-icon');
+            if (isBalanceVisible) {
+                icon.setAttribute('data-lucide', 'eye');
+            } else {
+                icon.setAttribute('data-lucide', 'eye-off');
+            }
+            lucide.createIcons();
+        }
+
+        function renderBalance() {
+            const display = document.getElementById('balance-display');
+            if (isBalanceVisible) {
+                display.innerText = formatUSD(currentBalance);
+            } else {
+                display.innerText = '••••••••••';
+            }
+        }
+
+        // Quick Amount Sets
+        function setQuickAmount(val) {
+            document.getElementById('amount-input').value = val;
+            handleAmountInput(val);
+        }
+
+        function setAllBalance() {
+            setQuickAmount(currentBalance);
+        }
+
+        function handleAmountInput(val) {
+            const wordsElem = document.getElementById('amount-in-words');
+            if (!val || val <= 0) {
+                wordsElem.innerText = '';
+                return;
+            }
+            wordsElem.innerText = `≈ $${formatUSD(parseFloat(val))} USD`;
+        }
+
+        // Handle Transfer Form Submit
+        function handleTransferSubmit(e) {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('amount-input').value);
+            const recipient = document.getElementById('recipient-input').value;
+            const message = document.getElementById('message-input').value || 'PAYMENT';
+
+            if (amount > currentBalance) {
+                showToast('TRANSACTION ERROR: Insufficient balance!', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('submit-transfer-btn');
+            btn.disabled = true;
+            btn.innerHTML = `<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent mr-2"></span> COMMITTING TO LEDGER...`;
+
+            setTimeout(() => {
+                // Update Balance
+                currentBalance -= amount;
+                renderBalance();
+
+                // Prepend New Transaction
+                const newTx = {
+                    id: 'TXN-' + Math.floor(10000000 + Math.random() * 90000000),
+                    type: 'OUT',
+                    amount: amount,
+                    sender: '8888-9901-0000-0001',
+                    recipient: recipient,
+                    recipientName: document.getElementById('resolved-recipient-name').innerText || recipient,
+                    desc: message.toUpperCase(),
+                    timestamp: 'Just now',
+                    status: 'SUCCESS',
+                    ledgerHash: '0x' + Math.random().toString(16).substring(2, 10) + '...' + Math.random().toString(16).substring(2, 6)
+                };
+
+                transactions.unshift(newTx);
+                currentPage = 1;
+                renderTransactionFeed();
+
+                // Add Notification
+                notifications.unshift({
+                    id: Date.now(),
+                    text: `Transfer of $${formatUSD(amount)} to ${recipient} completed`,
+                    time: "Just now",
+                    read: false
+                });
+                renderNotifications();
+
+                // Reset Form
+                document.getElementById('transfer-form').reset();
+                document.getElementById('resolved-recipient-card').classList.add('hidden');
+                document.getElementById('recipient-lookup-status').innerText = '';
+                document.getElementById('amount-in-words').innerText = '';
+
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="send" class="w-4 h-4"></i> TRANSFER`;
+                lucide.createIcons();
+
+                showToast(`TRANSFER SUCCESSFUL: -$${formatUSD(amount)} USD to ${recipient}`, 'success');
+            }, 500);
+        }
+
+        // Render Transaction List & Pagination
+        function renderTransactionFeed() {
+            const container = document.getElementById('tx-feed-container');
+            container.innerHTML = '';
+
+            const filtered = transactions.filter(t => {
+                if (activeFilter === 'in') return t.type === 'IN';
+                if (activeFilter === 'out') return t.type === 'OUT';
+                return true;
+            });
+
+            const total = filtered.length;
+            const totalPages = Math.ceil(total / pageSize) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const startIndex = isViewAllMode ? 0 : (currentPage - 1) * pageSize;
+            const endIndex = isViewAllMode ? total : Math.min(startIndex + pageSize, total);
+            const displayedItems = filtered.slice(startIndex, endIndex);
+
+            if (total === 0) {
+                container.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs border border-slate-200 bg-white">NO TRANSACTIONS FOUND</div>`;
+                document.getElementById('page-info-text').innerText = 'SHOWING 0 OF 0 TRANSACTIONS';
+                document.getElementById('page-numbers-container').innerHTML = '';
+                return;
+            }
+
+            displayedItems.forEach(tx => {
+                const isIncoming = tx.type === 'IN';
+                const sign = isIncoming ? '+' : '-';
+                const colorClass = isIncoming ? 'text-emerald-600' : 'text-slate-900';
+                const borderAccent = isIncoming ? 'border-l-emerald-500' : 'border-l-qpay-blue';
+                const targetParty = isIncoming ? (tx.senderName ? `${tx.senderName} (${tx.sender})` : tx.sender) : (tx.recipientName ? `${tx.recipientName} (${tx.recipient})` : tx.recipient);
+
+                const card = document.createElement('div');
+                card.className = `bg-white border border-slate-200 ${borderAccent} border-l-4 p-3.5 hover:shadow-sm transition-all text-xs`;
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-bold text-slate-800">${targetParty}</span>
+                        <span class="font-bold ${colorClass} text-sm">
+                            ${sign}$${formatUSD(tx.amount)} USD
+                        </span>
+                    </div>
+                    <div class="text-slate-500 text-[11px] truncate mb-2">
+                        ${tx.desc}
+                    </div>
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-100 pt-1.5">
+                        <span>${tx.timestamp}</span>
+                        <span class="text-slate-500 font-medium">${tx.id} // ${tx.ledgerHash}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Update Pagination Info
+            document.getElementById('page-info-text').innerText = `SHOWING ${startIndex + 1}-${endIndex} OF ${total} TRANSACTIONS`;
+            
+            // Render Page Number Buttons
+            const pageContainer = document.getElementById('page-numbers-container');
+            pageContainer.innerHTML = '';
+
+            if (!isViewAllMode && totalPages > 1) {
+                // Prev button
+                const prevBtn = document.createElement('button');
+                prevBtn.className = `px-2 py-1 border text-xs font-bold ${currentPage === 1 ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`;
+                prevBtn.innerHTML = '&lt;';
+                prevBtn.disabled = currentPage === 1;
+                prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; renderTransactionFeed(); } };
+                pageContainer.appendChild(prevBtn);
+
+                // Numbers
+                for (let i = 1; i <= totalPages; i++) {
+                    const btn = document.createElement('button');
+                    btn.className = `px-2.5 py-1 border text-xs font-bold ${currentPage === i ? 'bg-qpay-blue text-white border-qpay-blue' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'}`;
+                    btn.innerText = i;
+                    btn.onclick = () => { currentPage = i; renderTransactionFeed(); };
+                    pageContainer.appendChild(btn);
+                }
+
+                // Next button
+                const nextBtn = document.createElement('button');
+                nextBtn.className = `px-2 py-1 border text-xs font-bold ${currentPage === totalPages ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`;
+                nextBtn.innerHTML = '&gt;';
+                nextBtn.disabled = currentPage === totalPages;
+                nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; renderTransactionFeed(); } };
+                pageContainer.appendChild(nextBtn);
+            }
+        }
+
+        // Toggle View All / Paginated Mode
+        function toggleViewAll() {
+            isViewAllMode = !isViewAllMode;
+            const btn = document.getElementById('load-more-btn');
+            btn.innerText = isViewAllMode ? 'PAGINATE' : 'VIEW MORE';
+            renderTransactionFeed();
+        }
+
+        function filterFeed(type) {
+            activeFilter = type;
+            currentPage = 1;
+            document.getElementById('filter-all-btn').className = type === 'all' ? 'px-2.5 py-1 bg-qpay-blue text-white font-bold' : 'px-2.5 py-1 bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 font-medium';
+            document.getElementById('filter-in-btn').className = type === 'in' ? 'px-2.5 py-1 bg-emerald-600 text-white font-bold' : 'px-2.5 py-1 bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 font-medium';
+            document.getElementById('filter-out-btn').className = type === 'out' ? 'px-2.5 py-1 bg-qpay-blue text-white font-bold' : 'px-2.5 py-1 bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 font-medium';
+            renderTransactionFeed();
+        }
+
+        // Copy Text Helper
+        function copyText(text, successMsg) {
+            navigator.clipboard.writeText(text);
+            showToast(successMsg, 'success');
+        }
+
+        // Sharp Toast Notification
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgClass = type === 'success' ? 'bg-white border-emerald-500 text-emerald-800' : 'bg-white border-rose-500 text-rose-800';
+
+            toast.className = `p-3.5 border-l-4 border ${bgClass} text-xs shadow-xl pointer-events-auto flex items-center justify-between gap-4 min-w-[280px]`;
+            toast.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 ${type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+                    <span class="font-medium">${message}</span>
+                </div>
+            `;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
