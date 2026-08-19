@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package fraud;
+
+option go_package = "qpayflow/api/proto/fraud;fraud";
+
+service FraudService {
+  rpc CheckPayment (FraudCheckRequest) returns (FraudCheckResponse);
+}
+
+message FraudCheckRequest {
+  string payment_id = 1;
+  string source_account_id = 2;
+  double amount = 3;
+  string currency = 4;
+}
+
+message FraudCheckResponse {
+  string payment_id = 1;
+  bool approved = 2;
+  string reason = 3; // "PASSED" or rejection reason
+}

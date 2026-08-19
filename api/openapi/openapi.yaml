@@ -5,18 +5,49 @@ info:
   version: 1.0.0
 servers:
   - url: http://localhost:8000
-    description: API Gateway
+    description: API Gateway (Edge Ingress)
+  - url: http://localhost:8001
+    description: Payment Service (Direct)
+  - url: http://localhost:8002
+    description: Account Service (Direct)
+
 paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns health status of the service or gateway.
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: UP
+                  service:
+                    type: string
+                    example: api-gateway
+
   /payments:
     post:
       summary: Initiate a payment
-      description: Creates a new payment transaction. Requires an Idempotency-Key.
-      headers:
-        Idempotency-Key:
+      description: Creates a new payment transaction with two-tier Idempotency protection and Transactional Outbox.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
           schema:
             type: string
-          required: true
-          description: Unique key to prevent double charging.
+          description: Unique key to prevent double charging (can also be supplied in JSON body).
+        - name: traceparent
+          in: header
+          required: false
+          schema:
+            type: string
+          description: W3C distributed tracing context (00-<trace_id>-<span_id>-01).
       requestBody:
         required: true
         content:
@@ -25,29 +56,84 @@ paths:
               $ref: '#/components/schemas/CreatePaymentRequest'
       responses:
         '201':
-          description: Payment initiated successfully
+          description: Payment initiated successfully (PENDING)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Payment'
         '400':
           description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Idempotency conflict
+          description: Request is currently in-flight
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Idempotency key reused with mismatched payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /accounts/{id}:
+  /payments/{id}:
     get:
-      summary: Get account details
-      description: Retrieves the account balance and status.
+      summary: Get payment details by ID
+      description: Retrieves the current status and settlement outcome of a payment.
       parameters:
         - name: id
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
+          description: Payment ID (e.g. pay_xxxxxxxx-xxxx)
+      responses:
+        '200':
+          description: Payment details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /accounts/{id}:
+    get:
+      summary: Get account balance and status
+      description: Retrieves the account details, current balance, and optimistic locking version.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Account ID (e.g. acc_0001)
       responses:
         '200':
           description: Account details retrieved successfully
@@ -57,13 +143,21 @@ paths:
                 $ref: '#/components/schemas/Account'
         '404':
           description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /accounts/transfer:
     post:
-      summary: Transfer funds
-      description: Performs a double-entry transaction between two accounts.
+      summary: Transfer funds between accounts
+      description: Executes a Double-Entry transfer with Deadlock-Prevention sorted locking.
       requestBody:
         required: true
         content:
@@ -73,56 +167,103 @@ paths:
       responses:
         '200':
           description: Transfer completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: SUCCESS
+                  transaction_id:
+                    type: string
+                    example: pay_12345678-abcd
         '400':
-          description: Insufficient funds or invalid details
+          description: Insufficient balance or invalid accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reconcile/now:
+    post:
+      summary: Trigger manual reconciliation audit
+      description: Runs immediate Double-Entry ledger audit and Three-Way reconciliation (Settlement Service).
+      responses:
+        '200':
+          description: Audit triggered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: SUCCESS
+                  message:
+                    type: string
+                    example: Reconciliation audit executed
 
 components:
   schemas:
     CreatePaymentRequest:
       type: object
       required:
-        - user_id
+        - source_account_id
+        - target_account_id
         - amount
-        - currency
-        - payment_method
       properties:
-        user_id:
-          type: integer
-          format: int64
+        idempotency_key:
+          type: string
+          example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+        source_account_id:
+          type: string
+          example: acc_0001
+        target_account_id:
+          type: string
+          example: acc_0002
         amount:
           type: number
           format: double
+          example: 150.0000
         currency:
           type: string
           maxLength: 3
+          default: USD
           example: USD
-        payment_method:
-          type: string
-          example: CREDIT_CARD
 
     Payment:
       type: object
       properties:
         id:
           type: string
-          format: uuid
+          example: pay_7b9b1deb-3b7d-4bad-9bdd-2b0d7b3dcb6d
         idempotency_key:
           type: string
-        user_id:
-          type: integer
-          format: int64
+          example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+        source_account_id:
+          type: string
+          example: acc_0001
+        target_account_id:
+          type: string
+          example: acc_0002
         amount:
           type: number
           format: double
+          example: 150.0000
         currency:
           type: string
+          example: USD
         status:
           type: string
-          enum: [PENDING, PROCESSING, SUCCESS, FAILED, REFUNDED]
-        payment_method:
-          type: string
+          enum: [PENDING, PROCESSING, SUCCESS, FAILED]
+          example: PENDING
         created_at:
           type: string
           format: date-time
@@ -134,22 +275,22 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
-        user_id:
-          type: integer
-          format: int64
+          type: string
+          example: acc_0001
+        owner_id:
+          type: string
+          example: owner_0001
         currency:
           type: string
+          example: USD
         balance:
           type: number
           format: double
+          example: 9850.0000
         version:
           type: integer
           format: int64
-        status:
-          type: string
-          enum: [ACTIVE, FROZEN, CLOSED]
+          example: 2
         created_at:
           type: string
           format: date-time
@@ -164,21 +305,34 @@ components:
         - from_account_id
         - to_account_id
         - amount
-        - currency
       properties:
         transaction_id:
           type: string
-          format: uuid
+          example: pay_7b9b1deb-3b7d-4bad-9bdd-2b0d7b3dcb6d
         from_account_id:
-          type: integer
-          format: int64
+          type: string
+          example: acc_0001
         to_account_id:
-          type: integer
-          format: int64
+          type: string
+          example: acc_0002
         amount:
           type: number
           format: double
+          example: 150.0000
         currency:
           type: string
+          example: USD
         description:
           type: string
+          example: Payment pay_7b9b1deb
+        lock_strategy:
+          type: string
+          enum: [pessimistic, redis]
+          default: pessimistic
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: insufficient balance
