@@ -9,6 +9,8 @@
 [![Kafka](https://img.shields.io/badge/Kafka-4.x-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7.x-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![Docker](https://img.shields.io/badge/Docker-24.x-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![k3d](https://img.shields.io/badge/k3d-Kubernetes_in_Docker-FFC61C?style=for-the-badge&logo=k3s&logoColor=black)](https://k3d.io/)
 
 </div>
 
@@ -46,7 +48,7 @@ The system processes a basic yet distributed payment flow:
 - **Message Broker:** Apache Kafka — Event-driven messaging, Saga choreography, DLQ, and partition ordering
 - **Cache & Distributed Lock:** Redis — Rate limiting, fast-path idempotency key storage, and distributed locking
 - **Database:** PostgreSQL — Transactional persistence, Outbox pattern, and financial ledger balance control
-- **Containerization:** Docker & Docker Compose
+- **Containerization & Orchestration:** Docker & k3d (Lightweight Kubernetes in Docker) — Local multi-node K8s cluster management, ingress routing, and service orchestration
 
 ### 2. Core Microservices
 Instead of creating too many services, the architecture focuses on **6 core services**:
@@ -56,6 +58,11 @@ Instead of creating too many services, the architecture focuses on **6 core serv
 4. **Fraud Service:** Rule engine to detect fraud (e.g., large amounts, high frequency, new devices). Can store sliding-window state using Redis.
 5. **Settlement Service:** Reconciliation and settlement between Customer and Merchant (Background distributed job).
 6. **Notification Service:** Consumes Kafka events (Completed, Failed, Refunded) to send notifications.
+
+### 3. Deployment & Infrastructure Strategy
+The system is designed for containerized deployment and lightweight local Kubernetes orchestration:
+- **Docker (Containerization):** Multi-stage builds using Golang SDK and Google Distroless base images for hardened, ultra-lean container images (~18MB) with minimal attack surface.
+- **k3d (Kubernetes Orchestration):** Runs a multi-node K3s (Lightweight Kubernetes) cluster directly inside Docker. Enables full cloud-native workflows locally — including Ingress routing, ConfigMaps/Secrets, HPA auto-scaling, and zero-downtime rolling updates without heavy cloud infrastructure overhead.
 
 ---
 
@@ -128,7 +135,7 @@ The project will be benchmarked and validated through real-world tests:
 
 ## Implementation Roadmap
 
-* **Phase 0 — Foundation (1-2 days):** Go project structure, Protobuf schemas & gRPC toolchain, Docker, PostgreSQL, Redis, Kafka, config, logging.
+* **Phase 0 — Foundation (1-2 days):** Go project structure, Protobuf schemas & gRPC toolchain, Docker & k3d environment, PostgreSQL, Redis, Kafka, config, logging.
 * **Phase 1 — Payment MVP (3-5 days):** Setup DB, build core domain, expose internal gRPC endpoints & Gateway REST proxy without Kafka first (correct business logic).
 * **Phase 2 — Kafka Event Driven (3-5 days):** Integrate Kafka, producer, consumer, partitioning.
 * **Phase 3 — Reliability (4-7 days):** Add Idempotency, Retry, DLQ, Outbox.
@@ -139,7 +146,7 @@ The project will be benchmarked and validated through real-world tests:
 * **Phase 8 — Scale & Benchmark (3-5 days):** Load testing with k6, measure throughput, latency, CPU, memory.
 * **Phase 9 — Polyglot Microservices & Core Java Domain (4-6 days):** Implement/Migrate core domain services (e.g., Core Ledger Service, Accounting) using Java 17 + Spring Boot 3 applying Domain-Driven Design (DDD), integrated seamlessly with Go services via gRPC & Kafka.
 * **Phase 10 — Chaos Engineering (3-5 days):** Test crash scenarios, network partitions. Document recovery.
-* **Phase 11 — Kubernetes (3-5 days):** Containerize and deploy to k8s, experiment with auto-scaling.
+* **Phase 11 — Kubernetes Deployment with k3d (3-5 days):** Containerize microservices with Distroless Docker images, deploy multi-node cluster on k3d, configure Ingress, ConfigMaps/Secrets, HPA auto-scaling, and rolling updates.
 * **Phase 12 — Site Reliability Engineering (SRE) (3-5 days):** Define SLIs/SLOs/Error Budgets, set up Prometheus Alertmanager, and track burn rates during chaos tests.
 * **Phase 13 — Next-Gen Global Payments & Standards (4-6 days):** Adopt ISO 20022 data models (`pacs.008`/`camt.053` structured remittance), build Verification of Payee (VoP) pre-validation workflows, and support intelligent multi-rail routing.
 
