@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: qpayflow
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: qpayflow
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: qpayflow
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: qpayflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/part-of: qpayflow
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:10.4.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: "admin"
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: "admin"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 512Mi
+          volumeMounts:
+            - name: grafana-datasources-vol
+              mountPath: /etc/grafana/provisioning/datasources
+      volumes:
+        - name: grafana-datasources-vol
+          configMap:
+            name: grafana-datasources
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: qpayflow
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: qpayflow
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http
+  selector:
+    app: grafana

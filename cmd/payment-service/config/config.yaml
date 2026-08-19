@@ -1,0 +1,20 @@
+server:
+  port: 8001
+
+postgres:
+  host: "localhost"
+  port: 5432
+  user: "qpayflow"
+  password: "qpayflow_secret"
+  dbname: "qpayflow_db"
+  sslmode: "disable"
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+
+kafka:
+  brokers:
+    - "localhost:9092"
+  payment_events_topic: "payment-events"

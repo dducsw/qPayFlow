@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qpayflow-config
+  namespace: qpayflow
+  labels:
+    app.kubernetes.io/name: qpayflow
+data:
+  # Infrastructure Hosts
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "qpayflow_db"
+  REDIS_HOST: "redis:6379"
+  KAFKA_BROKERS: "kafka:9092"
+  
+  # Observability
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger:4317"
+  JAEGER_ENDPOINT: "http://jaeger:14268/api/traces"
+  PROMETHEUS_PORT: "9090"
+  
+  # Service Ports
+  API_GATEWAY_PORT: "8000"
+  PAYMENT_SERVICE_PORT: "8001"
+  ACCOUNT_SERVICE_PORT: "8002"
+  FRAUD_SERVICE_PORT: "8003"
+  NOTIFICATION_SERVICE_PORT: "8004"
+  
+  # Log & Environment
+  APP_ENV: "development"
+  LOG_LEVEL: "info"

@@ -1,0 +1,7 @@
+server:
+  port: 8000
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0

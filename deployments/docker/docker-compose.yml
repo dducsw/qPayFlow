@@ -232,6 +232,27 @@ services:
         condition: service_healthy
     profiles: ["apps", "full"]
 
+  settlement-service:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.service
+      args:
+        SERVICE_NAME: settlement-service
+    container_name: qpayflow-settlement-service
+    restart: unless-stopped
+    ports:
+      - "${SETTLEMENT_SERVICE_PORT:-8005}:8005"
+    environment:
+      PORT: 8005
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles: ["apps", "full"]
+
 volumes:
   postgres_data:
   redis_data:

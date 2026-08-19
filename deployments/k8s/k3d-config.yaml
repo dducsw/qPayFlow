@@ -1,0 +1,53 @@
+# ==============================================================================
+# k3d Cluster Configuration for qPayFlow
+# Multi-node Lightweight Kubernetes Cluster (1 Server + 2 Agents)
+# ==============================================================================
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: qpayflow-cluster
+servers: 1
+agents: 2
+image: rancher/k3s:v1.28.8-k3s1
+
+ports:
+  # Ingress HTTP / HTTPS mapping to Host
+  - port: 80:80
+    nodeFilters:
+      - loadbalancer
+  - port: 443:443
+    nodeFilters:
+      - loadbalancer
+  # Direct NodePort / Service mappings for convenient dev access
+  - port: 8000:8000
+    nodeFilters:
+      - loadbalancer
+  - port: 3000:3000
+    nodeFilters:
+      - loadbalancer
+  - port: 8080:8080
+    nodeFilters:
+      - loadbalancer
+  - port: 9090:9090
+    nodeFilters:
+      - loadbalancer
+  - port: 16686:16686
+    nodeFilters:
+      - loadbalancer
+
+options:
+  k3d:
+    wait: true
+    timeout: "120s"
+    disableLoadbalancer: false
+  k3s:
+    extraArgs:
+      - arg: --tls-san=127.0.0.1
+    nodeLabels:
+      - label: environment=local-dev
+        nodeFilters:
+          - server:0
+          - agent:*
+  kubeconfig:
+    updateDefaultKubeconfig: true
+    switchCurrentContext: true

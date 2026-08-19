@@ -49,7 +49,7 @@ Hệ thống được tổ chức thành **6 Core Microservices** với ranh gi�
   - **Transactional Outbox Pattern**: Thực hiện DB Transaction ghi đồng thời vào bảng `payments`, `transactions` và `outbox_events`.
   - **Outbox Worker Latency Measurement**: Cột `created_at` trong `outbox_events` đóng vai trò là mốc thời gian bắt buộc để đo đạc lag/latency khi so sánh luồng Polling Worker vs Debezium CDC (Experiment #5).
   - **Strict Idempotency Key Consistency**: Đồng bộ kiểu dữ liệu `VARCHAR(64)` giữa `payments.idempotency_key` (Foreign Key) và `idempotency_keys.key` (Primary Key).
-  - Không trực tiếp thay đổi số dư ví; việc thay đổi số dư được phát ra dưới dạng Event `PaymentCreated` gửi cho Account Service.
+  - Khởi tạo Event `PaymentInitiated` phát lên Kafka để kích hoạt pipeline Pre-Fraud Check và Two-Phase Balance Hold.
 
 ---
 
@@ -57,20 +57,20 @@ Hệ thống được tổ chức thành **6 Core Microservices** với ranh gi�
 - **Ngôn ngữ & Tech Stack**: Go (Golang) hoặc Java 17 / Spring Boot 3 + PostgreSQL RDBMS.
 - **Ranh giới Chức năng (Responsibilities)**:
   - Quản lý Tài khoản (Accounts), Ví điện tử (Wallets) và Sổ cái Kế toán (Core Ledger).
-  - **Double-Entry Bookkeeping Engine**: Đảm bảo mọi giao dịch đều sinh ra cặp bản ghi `DEBIT` (Nợ) và `CREDIT` (Có) bất biến trong bảng `ledger_entries`.
+  - **Two-Phase Balance Management**: Quản lý đa tầng số dư gồm `available_balance` (khả dụng) và `held_balance` (phong tỏa giao dịch in-flight).
+  - **Double-Entry Bookkeeping Engine**: Đảm bảo mọi giao dịch đều sinh ra các bản ghi bút toán bất biến trong bảng `ledger_entries` với nguyên tắc cân bằng $\sum \text{DEBIT} + \sum \text{CREDIT} = 0$.
   - **At-Least-Once Ledger Idempotency**: Áp dụng Ràng buộc Duy nhất `UNIQUE(transaction_id, account_id, entry_type)` trực tiếp tại tầng Database cho bảng `ledger_entries` để ngăn ngừa tuyệt đối trùng bút toán khi Kafka Consumer retry event.
-  - **Audit Trail & Time-series Reconciliation**: Bắt buộc cột `created_at` tại `ledger_entries` để phục vụ đối soát số dư theo cửa sổ thời gian và truy vết lịch sử biến động.
-  - **Concurrency Control**: Sử dụng kết hợp **Optimistic Locking** (`version` column trong SQL), **Pessimistic Locking** (`SELECT FOR UPDATE`), và **Redis Distributed Lock (Redlock)** để chống Race Conditions và Double-Spending khi có hàng nghìn giao dịch song song vào cùng một tài khoản.
+  - **Concurrency Control & Deadlock Prevention**: Áp dụng **Pessimistic Locking (`SELECT FOR UPDATE`)** với cơ chế sắp xếp ID tài khoản tăng dần (`Lock Ordering`) để triệt tiêu circular wait khi xử lý giao dịch song song.
 
 ---
 
 ### 2.4. Fraud Detection Service
 - **Ngôn ngữ & Tech Stack**: Go (Golang) + Redis Cluster (Data Structure: ZSET & Hashes).
 - **Ranh giới Chức năng (Responsibilities)**:
-  - Đánh giá rủi ro giao dịch theo thời gian thực (Real-Time Fraud Engine).
-  - **Velocity Rules**: Kiểm tra tần suất giao dịch trong cửa sổ thời gian trượt (Sliding Window Counter trên Redis): Ví dụ không quá 5 giao dịch / phút cho cùng một thiết bị.
-  - **Amount Thresholds & Risk Scoring**: Cảnh báo giao dịch giá trị bất thường hoặc vị trí địa lý lạ (IP Risk).
-  - Phát Event `FraudCheckPassed` hoặc `FraudCheckFailed` (Kích hoạt luồng Saga Compensation).
+  - Đánh giá rủi ro giao dịch theo thời gian thực (Pre-Authorization Guard).
+  - **Pre-Debit Velocity Rules**: Kiểm tra tần suất giao dịch (Sliding Window Counter trên Redis ZSET) TRƯỚC khi tài khoản bị phong tỏa hoặc trừ tiền, ngăn ngừa lãng phí I/O ghi sổ cái.
+  - **Amount Thresholds & Risk Scoring**: Tự động từ chối giao dịch bất thường (> $10,000) hoặc IP rủi ro cao.
+  - Phát Event `FraudChecked` (Passed/Rejected) điều phối bước tiếp theo trong Saga.
 
 ---
 
@@ -102,14 +102,16 @@ Hệ thống được tổ chức thành **6 Core Microservices** với ranh gi�
 
 ### 3.2. Chi Tiết Bảng Dữ Liệu SQL DDL (Database Table Definitions)
 
-#### Bảng `accounts` (Tài khoản & Số dư)
+#### Bảng `accounts` (Tài khoản & Số dư đa tầng)
 ```sql
 CREATE TABLE accounts (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     currency VARCHAR(3) NOT NULL DEFAULT 'USD',
-    balance NUMERIC(18, 4) NOT NULL DEFAULT 0.0000 CHECK (balance >= 0),
-    version BIGINT NOT NULL DEFAULT 1, -- Optimistic Locking version column
+    available_balance NUMERIC(18, 4) NOT NULL DEFAULT 0.0000 CHECK (available_balance >= 0),
+    held_balance NUMERIC(18, 4) NOT NULL DEFAULT 0.0000 CHECK (held_balance >= 0),
+    balance NUMERIC(18, 4) GENERATED ALWAYS AS (available_balance + held_balance) STORED,
+    version BIGINT NOT NULL DEFAULT 1, -- Version column for Optimistic Concurrency benchmarks
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- 'ACTIVE', 'FROZEN', 'CLOSED'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -118,13 +120,13 @@ CREATE TABLE accounts (
 CREATE INDEX idx_accounts_user_id ON accounts(user_id);
 ```
 
-#### Bảng `ledger_entries` (Sổ cái Hạch toán Nợ/Có Bất biến)
+#### Bảng `ledger_entries` (Sổ cái Hạch toán Bất biến)
 ```sql
 CREATE TABLE ledger_entries (
     id BIGSERIAL PRIMARY KEY,
     transaction_id UUID NOT NULL,
     account_id BIGINT NOT NULL REFERENCES accounts(id),
-    entry_type VARCHAR(10) NOT NULL CHECK (entry_type IN ('DEBIT', 'CREDIT')),
+    entry_type VARCHAR(20) NOT NULL CHECK (entry_type IN ('DEBIT', 'CREDIT', 'HOLD', 'RELEASE_HOLD')),
     amount NUMERIC(18, 4) NOT NULL CHECK (amount > 0),
     currency VARCHAR(3) NOT NULL DEFAULT 'USD',
     balance_after NUMERIC(18, 4) NOT NULL,
@@ -142,7 +144,7 @@ CREATE INDEX idx_ledger_entries_created_at ON ledger_entries(created_at);
 ```sql
 CREATE TABLE payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    idempotency_key VARCHAR(64) NOT NULL UNIQUE REFERENCES idempotency_keys(key),
+    idempotency_key VARCHAR(64) NOT NULL UNIQUE, -- business-level ref only; NOT a FK to idempotency_keys
     user_id BIGINT NOT NULL,
     amount NUMERIC(18, 4) NOT NULL CHECK (amount > 0),
     currency VARCHAR(3) NOT NULL DEFAULT 'USD',
@@ -174,16 +176,24 @@ CREATE INDEX idx_transactions_payment_id ON transactions(payment_id);
 #### Bảng `idempotency_keys` (Quản lý Khóa Vô hiệu)
 ```sql
 CREATE TABLE idempotency_keys (
-    key VARCHAR(64) PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    request_hash VARCHAR(64) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PROCESSING', -- 'PROCESSING', 'COMPLETED'
-    response_code INT,
-    response_body JSONB,
-    locked_until TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    key             VARCHAR(64) PRIMARY KEY,
+    user_id         BIGINT NOT NULL,
+    endpoint        VARCHAR(100) NOT NULL,             -- e.g. 'POST /payments', 'POST /refunds'
+    request_hash    VARCHAR(64) NOT NULL,              -- SHA256(method + path + body) — detects same key, different body
+    status          VARCHAR(20) NOT NULL DEFAULT 'PROCESSING', -- 'PROCESSING', 'COMPLETED'
+    response_code   INT,
+    response_body   JSONB,
+    locked_until    TIMESTAMP WITH TIME ZONE NOT NULL, -- prevents concurrent in-flight reuse
+    expires_at      TIMESTAMP WITH TIME ZONE NOT NULL, -- TTL for purge job (e.g. NOW() + INTERVAL '24 hours')
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Index for background purge job
+CREATE INDEX idx_idempotency_keys_expires_at ON idempotency_keys(expires_at);
 ```
+
+> **Design decision**: `idempotency_keys` is the **sole guard** against duplicate write requests. Idempotency is enforced via a single atomic `INSERT ... ON CONFLICT (key) DO NOTHING` — if `rows_affected == 0` the stored response is returned directly. This eliminates the TOCTOU race condition of a `SELECT`-then-`INSERT` pattern. This table is decoupled from `payments` and can be purged independently after `expires_at` without affecting business records.
+
 
 #### Bảng `outbox_events` (Transactional Outbox Events)
 ```sql

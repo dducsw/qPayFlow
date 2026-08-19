@@ -1,0 +1,8 @@
+server:
+  port: 8004
+
+kafka:
+  brokers:
+    - "localhost:9092"
+  payment_events_topic: "payment-events"
+  notification_group_id: "notification-service-group"

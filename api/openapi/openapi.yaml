@@ -1,0 +1,184 @@
+openapi: 3.0.3
+info:
+  title: qPayFlow API Specification
+  description: API specifications for the qPayFlow Distributed Payment Processing Platform.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: API Gateway
+paths:
+  /payments:
+    post:
+      summary: Initiate a payment
+      description: Creates a new payment transaction. Requires an Idempotency-Key.
+      headers:
+        Idempotency-Key:
+          schema:
+            type: string
+          required: true
+          description: Unique key to prevent double charging.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      responses:
+        '201':
+          description: Payment initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          description: Invalid request parameters
+        '409':
+          description: Idempotency conflict
+        '500':
+          description: Internal server error
+
+  /accounts/{id}:
+    get:
+      summary: Get account details
+      description: Retrieves the account balance and status.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Account details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '404':
+          description: Account not found
+        '500':
+          description: Internal server error
+
+  /accounts/transfer:
+    post:
+      summary: Transfer funds
+      description: Performs a double-entry transaction between two accounts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+      responses:
+        '200':
+          description: Transfer completed successfully
+        '400':
+          description: Insufficient funds or invalid details
+        '500':
+          description: Internal server error
+
+components:
+  schemas:
+    CreatePaymentRequest:
+      type: object
+      required:
+        - user_id
+        - amount
+        - currency
+        - payment_method
+      properties:
+        user_id:
+          type: integer
+          format: int64
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          maxLength: 3
+          example: USD
+        payment_method:
+          type: string
+          example: CREDIT_CARD
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        idempotency_key:
+          type: string
+        user_id:
+          type: integer
+          format: int64
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, SUCCESS, FAILED, REFUNDED]
+        payment_method:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        balance:
+          type: number
+          format: double
+        version:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [ACTIVE, FROZEN, CLOSED]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TransferRequest:
+      type: object
+      required:
+        - transaction_id
+        - from_account_id
+        - to_account_id
+        - amount
+        - currency
+      properties:
+        transaction_id:
+          type: string
+          format: uuid
+        from_account_id:
+          type: integer
+          format: int64
+        to_account_id:
+          type: integer
+          format: int64
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+        description:
+          type: string

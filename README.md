@@ -146,7 +146,7 @@ The project will be benchmarked and validated through real-world tests:
 * **Phase 8 — Scale & Benchmark (3-5 days):** Load testing with k6, measure throughput, latency, CPU, memory.
 * **Phase 9 — Polyglot Microservices & Core Java Domain (4-6 days):** Implement/Migrate core domain services (e.g., Core Ledger Service, Accounting) using Java 17 + Spring Boot 3 applying Domain-Driven Design (DDD), integrated seamlessly with Go services via gRPC & Kafka.
 * **Phase 10 — Chaos Engineering (3-5 days):** Test crash scenarios, network partitions. Document recovery.
-* **Phase 11 — Kubernetes Deployment with k3d (3-5 days):** Containerize microservices with Distroless Docker images, deploy multi-node cluster on k3d, configure Ingress, ConfigMaps/Secrets, HPA auto-scaling, and rolling updates.
+* **Phase 11 — Kubernetes Deployment with k3d (3-5 days):** Containerize microservices with Distroless Docker images and orchestrate a multi-node cluster (1 Server + 2 Agents) via tool-based modular manifests (`00-base` to `07-hpa`). Configure built-in Traefik Ingress, ConfigMaps/Secrets, zero-downtime rolling updates with graceful shutdown hooks, and HPA autoscaling (2–10 pods).
 * **Phase 12 — Site Reliability Engineering (SRE) (3-5 days):** Define SLIs/SLOs/Error Budgets, set up Prometheus Alertmanager, and track burn rates during chaos tests.
 * **Phase 13 — Next-Gen Global Payments & Standards (4-6 days):** Adopt ISO 20022 data models (`pacs.008`/`camt.053` structured remittance), build Verification of Payee (VoP) pre-validation workflows, and support intelligent multi-rail routing.
 

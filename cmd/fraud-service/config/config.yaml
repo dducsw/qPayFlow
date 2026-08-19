@@ -1,0 +1,14 @@
+server:
+  port: 8003
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+
+kafka:
+  brokers:
+    - "localhost:9092"
+  payment_events_topic: "payment-events"
+  fraud_events_topic: "fraud-events"
+  fraud_group_id: "fraud-service-group"

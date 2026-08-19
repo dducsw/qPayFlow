@@ -1,0 +1,93 @@
+# ==============================================================================
+# Fraud Service (Deployment + Service)
+# ==============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fraud-service
+  namespace: qpayflow
+  labels:
+    app: fraud-service
+    app.kubernetes.io/name: fraud-service
+    app.kubernetes.io/part-of: qpayflow
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: fraud-service
+  template:
+    metadata:
+      labels:
+        app: fraud-service
+        app.kubernetes.io/name: fraud-service
+        app.kubernetes.io/part-of: qpayflow
+    spec:
+      containers:
+        - name: fraud-service
+          image: qpayflow/fraud-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8003
+              name: http
+            - containerPort: 50053
+              name: grpc
+          envFrom:
+            - configMapRef:
+                name: qpayflow-config
+            - secretRef:
+                name: qpayflow-secrets
+          env:
+            - name: PORT
+              value: "8003"
+            - name: GRPC_PORT
+              value: "50053"
+            - name: SERVICE_NAME
+              value: "fraud-service"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sleep", "3"]
+          readinessProbe:
+            tcpSocket:
+              port: 8003
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 8003
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-service
+  namespace: qpayflow
+  labels:
+    app: fraud-service
+    app.kubernetes.io/name: fraud-service
+    app.kubernetes.io/part-of: qpayflow
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8003
+      targetPort: 8003
+      name: http
+    - port: 50053
+      targetPort: 50053
+      name: grpc
+  selector:
+    app: fraud-service
